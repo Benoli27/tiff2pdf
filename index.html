@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIFF to PDF</title>
+<style>
+  :root { --bg:#f6f6f4; --fg:#1d1d1b; --muted:#6b6b66; --line:#d6d6d0; --accent:#2457c5; --card:#fff; --err:#b3261e; --ok:#1e7a3a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161615; --fg:#ececea; --muted:#9b9b95; --line:#3a3a37; --accent:#7ea2ff; --card:#1f1f1d; --err:#ff8a80; --ok:#7bd88f; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:32px 16px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  p.sub { color:var(--muted); margin:0 0 24px; }
+  #drop { border:2px dashed var(--line); border-radius:10px; background:var(--card); padding:40px 16px; text-align:center; cursor:pointer; }
+  #drop.over { border-color:var(--accent); }
+  .row { display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin:16px 0; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 16px; font:inherit; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  ul { list-style:none; padding:0; margin:0; }
+  li { padding:8px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:12px; }
+  li .s { color:var(--muted); white-space:nowrap; }
+  li .s.err { color:var(--err); } li .s.ok { color:var(--ok); }
+  small { color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>TIFF to PDF</h1>
+  <p class="sub">Runs entirely in your browser. Files are not uploaded anywhere.</p>
+
+  <label id="drop">
+    Drop TIFF files here, or click to choose
+    <input id="pick" type="file" accept=".tif,.tiff,image/tiff" multiple hidden>
+  </label>
+
+  <div class="row">
+    <label><input type="checkbox" id="merge"> Merge all into one PDF</label>
+    <button id="go" disabled>Convert</button>
+    <button id="clear" disabled style="background:var(--muted)">Clear</button>
+  </div>
+
+  <ul id="list"></ul>
+  <p><small>Pages are stored losslessly (PNG). Page size follows the TIFF's DPI (96 DPI if none is set).
+  For best quality and smallest files, use the desktop tool (tiff2pdf.py).</small></p>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/pako@1.0.11/dist/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let files = [];
+
+function render() {
+  $('list').innerHTML = '';
+  files.forEach(f => {
+    const li = document.createElement('li');
+    li.innerHTML = '<span></span><span class="s"></span>';
+    li.firstChild.textContent = f.file.name;
+    li.lastChild.textContent = f.status;
+    li.lastChild.className = 's ' + (f.cls || '');
+    $('list').appendChild(li);
+  });
+  $('go').disabled = $('clear').disabled = !files.length;
+}
+
+function add(list) {
+  for (const file of list)
+    if (/\.tiff?$/i.test(file.name)) files.push({ file, status: 'ready' });
+  render();
+}
+
+// TIFF resolution tags: 282/283 = X/Y resolution, 296 = unit (2 inch, 3 cm).
+function dpiOf(ifd) {
+  const val = t => (ifd[t] ? Number(ifd[t][0]) : 0);
+  let x = val('t282'), y = val('t283') || x;
+  const unit = ifd.t296 ? ifd.t296[0] : 2;
+  if (unit === 3) { x *= 2.54; y *= 2.54; }
+  if (unit === 1 || x < 10 || y < 10) return [96, 96];
+  return [x, y];
+}
+
+function toPng(ifd) {
+  const rgba = UTIF.toRGBA8(ifd);
+  const c = document.createElement('canvas');
+  c.width = ifd.width; c.height = ifd.height;
+  c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(rgba.buffer), ifd.width, ifd.height), 0, 0);
+  return new Promise((res, rej) => c.toBlob(b => b ? b.arrayBuffer().then(res) : rej(new Error('image too large for the browser')), 'image/png'));
+}
+
+// UTIF's bundled JPEG decoder always treats 3-channel JPEG data as YCbCr.
+// TIFFs with JPEG compression (259=7) but RGB photometric (262=2) store plain
+// RGB, so skip the colour conversion for those. `w` is the decoder's
+// "apply colour transform" check in utif@3.1.0 (pinned above).
+let rawRgbJpeg = false;
+const jpegProto = UTIF.JpegDecoder && UTIF.JpegDecoder.prototype;
+if (jpegProto && typeof jpegProto.w === 'function') {
+  const applyTransform = jpegProto.w;
+  jpegProto.w = function () {
+    return rawRgbJpeg && this.i === 3 && !this.A ? false : applyTransform.call(this);
+  };
+}
+
+async function addTiffPages(pdf, buf) {
+  const ifds = UTIF.decode(buf)
+    .filter(ifd => !(ifd.t254 && (ifd.t254[0] & 1))); // skip reduced-resolution thumbnails
+  if (!ifds.length) throw new Error('no pages found');
+  for (const ifd of ifds) {
+    rawRgbJpeg = !!(ifd.t259 && ifd.t259[0] === 7 && ifd.t262 && ifd.t262[0] === 2);
+    UTIF.decodeImage(buf, ifd);
+    rawRgbJpeg = false;
+    if (!ifd.width || !ifd.data) throw new Error('unsupported TIFF encoding');
+    const [dx, dy] = dpiOf(ifd);
+    const img = await pdf.embedPng(await toPng(ifd));
+    const w = ifd.width / dx * 72, h = ifd.height / dy * 72;
+    pdf.addPage([w, h]).drawImage(img, { x: 0, y: 0, width: w, height: h });
+  }
+}
+
+function download(bytes, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+async function convert() {
+  $('go').disabled = true;
+  const merge = $('merge').checked;
+  const merged = merge ? await PDFLib.PDFDocument.create() : null;
+  let okCount = 0;
+  for (const f of files) {
+    f.status = 'converting…'; f.cls = ''; render();
+    try {
+      const buf = await f.file.arrayBuffer();
+      const pdf = merged || await PDFLib.PDFDocument.create();
+      await addTiffPages(pdf, buf);
+      if (!merge) download(await pdf.save(), f.file.name.replace(/\.tiff?$/i, '.pdf'));
+      f.status = 'done'; f.cls = 'ok'; okCount++;
+    } catch (e) {
+      f.status = 'failed: ' + (e.message || e); f.cls = 'err';
+    }
+    render();
+    await new Promise(r => setTimeout(r)); // let the page repaint between files
+  }
+  if (merge && okCount) download(await merged.save(), files[0].file.name.replace(/\.tiff?$/i, '') + '_merged.pdf');
+  $('go').disabled = false;
+}
+
+const drop = $('drop');
+['dragenter', 'dragover'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', ev => add(ev.dataTransfer.files));
+$('pick').addEventListener('change', ev => { add(ev.target.files); ev.target.value = ''; });
+$('go').addEventListener('click', convert);
+$('clear').addEventListener('click', () => { files = []; render(); });
+</script>
+</body>
+</html>
