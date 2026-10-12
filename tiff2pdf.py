@@ -138,7 +138,10 @@ def main():
 
     # Keep the console window open when launched by drag-and-drop/double-click on Windows.
     if os.name == "nt" and (interactive or getattr(sys, "frozen", False)):
-        input("\nPress Enter to close...")
+        try:
+            input("\nPress Enter to close...")
+        except EOFError:  # no console attached (e.g. run from a script)
+            pass
     return 1 if failed else 0
 
 

@@ -1,57 +1,57 @@
 # tiff2pdf
 
-Two ways to turn TIFF files (including multipage TIFFs) into PDFs.
+Turns TIFF files (multipage included) into PDFs. Built on [img2pdf](https://gitlab.mister-muffin.de/josch/img2pdf).
 
-| | Desktop tool (`tiff2pdf.py`) | Browser page (`index.html`) |
-|---|---|---|
-| Install | Python, or a packaged `.exe` | None: open the page |
-| Quality | Lossless. CCITT G3/G4 fax data is copied into the PDF unchanged | Lossless (pages stored as PNG) |
-| File size | Smallest | Larger, especially for black-and-white scans |
-| Large drawings (A0 at high DPI) | Fine | Can hit browser memory / canvas limits |
-| Files leave your machine? | No | No, everything runs in the browser |
+- No quality loss. CCITT G3/G4 data (typical black-and-white scans) goes into the PDF unchanged. Other compressions (LZW, Deflate, JPEG, uncompressed) are decoded and stored losslessly with Flate.
+- Keeps the TIFF's DPI, so page sizes come out right (a 300 DPI A4 scan becomes an A4 page). If a TIFF has no DPI, 96 DPI is assumed.
+- Files never leave your machine.
 
-Both keep the TIFF's DPI, so page sizes come out right (a 300 DPI A4 scan becomes an A4 page). If a TIFF has no DPI, 96 DPI is assumed.
+## Get the exe
 
-## Desktop tool
+GitHub builds `tiff2pdf.exe` on every push (workflow: `.github/workflows/build-exe.yml`).
+
+1. Open the repo's **Actions** tab and click the latest green **Build Windows exe** run.
+2. Under **Artifacts**, download **tiff2pdf-windows** and unzip it.
+3. Move `tiff2pdf.exe` somewhere permanent, e.g. `C:\Tools\tiff2pdf.exe`.
+
+It's a single file with no installer and doesn't need Python.
+
+## Use it
+
+- **Drag and drop:** drag TIFFs (or a folder) onto `tiff2pdf.exe`. A PDF appears next to each TIFF. A window shows the result; press Enter to close it.
+- **Double-click:** opens a file picker.
+- **Right-click → Send to (recommended):**
+  1. Press `Win + R`, type `shell:sendto`, press Enter.
+  2. In that folder, right-click → New → Shortcut, and point it at `tiff2pdf.exe`.
+  3. Now select TIFFs in Explorer → right-click → Send to → tiff2pdf. On Windows 11, choose "Show more options" first.
+
+### Merge into one PDF
+
+From a Command Prompt:
+
+```
+C:\Tools\tiff2pdf.exe --merge -o combined.pdf page1.tif page2.tif
+```
+
+## First run: Windows SmartScreen
+
+The exe isn't code-signed, so Windows may show "Windows protected your PC". Click **More info → Run anyway**. If your company's IT blocks unsigned programs, ask them to allow it, or use the Python route below.
+
+## Running from Python instead
 
 ```
 pip install -r requirements.txt
-python tiff2pdf.py scan.tif                     # -> scan.pdf next to it
-python tiff2pdf.py a.tif b.tif folder/          # one PDF per TIFF
-python tiff2pdf.py --merge a.tif b.tif          # -> a_merged.pdf
-python tiff2pdf.py --merge -o out.pdf folder/   # choose the merged name
-python tiff2pdf.py                              # no arguments: pick files in a dialog
+python tiff2pdf.py scan.tif
+python tiff2pdf.py --merge -o out.pdf folder/
 ```
 
-### Windows drag-and-drop `.exe`
+To build the exe yourself on Windows: `pip install pyinstaller` then `pyinstaller --onefile --name tiff2pdf tiff2pdf.py`. The result is in `dist\`.
 
-```
-pip install pyinstaller
-pyinstaller --onefile --name tiff2pdf tiff2pdf.py
-```
+## Fallback for unusual TIFFs
 
-Drag TIFFs onto `dist\tiff2pdf.exe` and a PDF appears next to each one. The window stays open so you can read the result. Company IT may block unsigned `.exe` files; running the `.py` with Python avoids that.
+If img2pdf rejects a file (for example 16-bit), the tool re-encodes each page losslessly with Pillow and prints a `note:` line. 16-bit pages are reduced to 8-bit, which is what PDF viewers display anyway.
 
-### What it does with each TIFF
-
-1. It hands the TIFF to [img2pdf](https://gitlab.mister-muffin.de/josch/img2pdf). For CCITT Group 3/4 (typical black-and-white scans) the compressed data goes into the PDF as-is. Other compressions (LZW, Deflate, JPEG, uncompressed) are decoded and stored losslessly with Flate.
-2. If img2pdf rejects a file (for example a 16-bit TIFF), it falls back to Pillow and re-encodes each page losslessly. 16-bit pages are reduced to 8-bit, which is all PDF viewers display. The tool prints a `note:` line when this happens.
-
-## Browser page
-
-Open `index.html` in a browser (or host it anywhere, e.g. GitHub Pages). Drop TIFFs on it, tick "Merge" if you want one PDF, and click Convert. It needs internet access to load three libraries from cdn.jsdelivr.net (pinned versions):
-
-- [UTIF.js](https://github.com/photopea/UTIF.js) 3.1.0: TIFF decoding
-- [pako](https://github.com/nodeca/pako) 1.0.11: Deflate support for UTIF.js
-- [pdf-lib](https://pdf-lib.js.org/) 1.17.1: PDF writing
-
-`index.html` includes a fix for UTIF.js mis-colouring JPEG-compressed TIFFs that use RGB photometric. That fix is tied to UTIF.js 3.1.0, so re-test JPEG TIFFs if you change that version.
-
-## Tested
-
-Both tools were checked against generated TIFFs: multipage CCITT G4 at 300 DPI, JPEG (RGB and YCbCr photometric), RGBA, 16-bit greyscale and CMYK LZW. Page sizes and pixel colours matched the source. Test with a few of your real files before relying on it, especially unusual scanner output.
-
-## Alternatives that need no code
+## Alternatives that need no install
 
 - libtiff's [`tiff2pdf`](https://libtiff.gitlab.io/libtiff/tools/tiff2pdf.html) command-line tool
 - macOS Preview: File → Export as PDF

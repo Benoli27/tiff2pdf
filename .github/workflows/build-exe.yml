@@ -1,0 +1,33 @@
+name: Build Windows exe
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build exe
+        run: pyinstaller --onefile --name tiff2pdf tiff2pdf.py
+
+      - name: Smoke test
+        shell: bash
+        run: |
+          python -c "from PIL import Image; a=Image.new('1',(2480,3508),1); a.save('test.tif', compression='group4', dpi=(300,300), save_all=True, append_images=[a])"
+          ./dist/tiff2pdf.exe test.tif < /dev/null
+          python -c "import pikepdf; p=pikepdf.open('test.pdf'); assert len(p.pages)==2, len(p.pages); print('pages:', len(p.pages))"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tiff2pdf-windows
+          path: dist/tiff2pdf.exe
