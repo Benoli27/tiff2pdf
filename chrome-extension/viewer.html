@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TIFF Viewer</title>
+<link rel="icon" href="icons/icon32.png">
+<link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+<header id="bar">
+  <button id="open" title="Open a TIFF file (Ctrl+O)">Open…</button>
+  <span class="sep"></span>
+  <button id="prev" title="Previous page (←)" disabled>‹</button>
+  <span id="pageInfo">–</span>
+  <button id="next" title="Next page (→)" disabled>›</button>
+  <span class="sep"></span>
+  <button id="zoomOut" title="Zoom out (−)" disabled>−</button>
+  <select id="zoom" disabled>
+    <option value="fit-width">Fit width</option>
+    <option value="fit-page">Fit page</option>
+    <option value="1">100%</option>
+    <option value="custom" hidden></option>
+  </select>
+  <button id="zoomIn" title="Zoom in (+)" disabled>+</button>
+  <button id="rotate" title="Rotate (R)" disabled>⟳</button>
+  <span class="grow"></span>
+  <span id="name"></span>
+  <span class="grow"></span>
+  <button id="original" title="Save the original TIFF" disabled>Save TIFF</button>
+  <button id="pdf" class="primary" title="Save as PDF (Ctrl+S)" disabled>Save as PDF</button>
+  <input id="pick" type="file" accept=".tif,.tiff,image/tiff" hidden>
+</header>
+<main id="pages">
+  <div id="message">
+    <p>Drop a TIFF file here, or click <b>Open…</b></p>
+    <p class="hint">Tip: links to .tif/.tiff files open here automatically.</p>
+  </div>
+</main>
+<script src="lib/pako.min.js"></script>
+<script src="lib/UTIF.js"></script>
+<script src="lib/pdf-lib.min.js"></script>
+<script src="viewer.js"></script>
+</body>
+</html>

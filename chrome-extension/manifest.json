@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "TIFF Viewer",
+  "version": "1.0.0",
+  "description": "View TIFF images (including multipage) in Chrome and save them as PDF. Everything runs locally.",
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "action": { "default_title": "Open a TIFF file", "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png" } },
+  "background": { "service_worker": "background.js" },
+  "permissions": ["declarativeNetRequest", "webNavigation", "contextMenus", "downloads"],
+  "host_permissions": ["<all_urls>"],
+  "web_accessible_resources": [{ "resources": ["viewer.html"], "matches": ["<all_urls>"] }]
+}

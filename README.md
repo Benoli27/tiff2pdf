@@ -55,3 +55,7 @@ If img2pdf rejects a file (for example 16-bit), the tool re-encodes each page lo
 
 - libtiff's [`tiff2pdf`](https://libtiff.gitlab.io/libtiff/tools/tiff2pdf.html) command-line tool
 - macOS Preview: File → Export as PDF
+
+## Chrome extension (TIFF viewer)
+
+`chrome-extension/` holds a Chrome extension that opens TIFFs in a Chrome tab (multipage, zoom, rotate) and saves them as PDF. Install steps are in [`chrome-extension/README.md`](chrome-extension/README.md).

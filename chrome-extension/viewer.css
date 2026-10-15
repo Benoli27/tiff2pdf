@@ -1,0 +1,35 @@
+:root {
+  --bg: #e9e9e6; --bar: #fafaf8; --fg: #1d1d1b; --muted: #6b6b66; --line: #d0d0ca;
+  --accent: #2457c5; --err: #b3261e; --page-shadow: 0 1px 4px rgba(0,0,0,.25);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #2a2a28; --bar: #1c1c1b; --fg: #ececea; --muted: #9b9b95; --line: #3a3a37;
+    --accent: #7ea2ff; --err: #ff8a80; --page-shadow: 0 1px 6px rgba(0,0,0,.6);
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 13px/1.4 system-ui, sans-serif; display: flex; flex-direction: column; }
+
+#bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--bar); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+#bar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+#bar .grow { flex: 1; }
+#name { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+#pageInfo { min-width: 64px; text-align: center; font-variant-numeric: tabular-nums; }
+button, select { font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; cursor: pointer; }
+select { background: var(--bar); }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled, select:disabled { opacity: .4; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+#pages { flex: 1; overflow: auto; padding: 16px; position: relative; }
+#pages.over { outline: 3px dashed var(--accent); outline-offset: -10px; }
+.page { margin: 0 auto 16px; background: #fff; box-shadow: var(--page-shadow); position: relative; }
+.page canvas { display: block; width: 100%; height: 100%; }
+.page .label { position: absolute; inset: 0; display: grid; place-items: center; color: #888; }
+
+#message { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; color: var(--muted); padding: 16px; }
+#message p { margin: 4px 0; }
+#message .hint { font-size: 12px; }
+#message.error { color: var(--err); }
